@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 
 from pydantic import BaseModel
 from datetime import datetime
@@ -54,10 +54,18 @@ class User(UserBase):
     id: int
     creation_time: datetime
 
-    class Config:
-        orm_mode = True
+
+class Config:
+    orm_mode = True
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class BatchUpdateRequest(BaseModel):
+    event_ids: List[int]
+    event_data: List[dict]
+
+

@@ -13,8 +13,7 @@ from app.auth import authenticate_user, create_access_token_for_user, oauth2_sch
     create_access_token
 from app.database import SessionLocal, engine
 from app.database import get_db
-from app.schemas import SortField
-
+from app.schemas import SortField, BatchUpdateRequest, EventUpdate
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -87,14 +86,15 @@ def get_event_by_description(event_id: int, db: Session = Depends(get_db), token
 
 
 @app.put("/event/{id}", response_model=schemas.Event)
-def update_event(event_id: int, event_update: schemas.EventUpdate, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
+def update_event(event_id: int, event_update: schemas.EventUpdate, db: Session = Depends(get_db),
+                 token: str = Depends(auth.oauth2_scheme)):
     user_id = auth.get_user_id_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     db_event = crud.get_event_by_id(db, event_id)
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
-    updated_event = crud.update_event(db, db_event.description, event_update)
+    updated_event = crud.update_event(db, db_event.id, event_update)
     return updated_event
 
 
@@ -124,6 +124,44 @@ def get_events_sorted(sort_field: SortField, db: Session = Depends(get_db), toke
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return crud.get_events(db, sort_field=sort_field)
+
+
+@app.post("/events/batch_create/", response_model=List[schemas.Event])
+def batch_create_events(events: List[schemas.EventCreate], db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
+    user_id = auth.get_user_id_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    return [crud.create_event(db=db, event=event, user_id=user_id) for event in events]
+
+
+@app.put("/events/batch_update/{event_ids}")
+async def batch_update_events(event_ids: str, event_data: List[schemas.EventUpdate],
+                              db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
+    user_id = auth.get_user_id_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    event_id_list = [int(id_) for id_ in event_ids.split(",")]
+    updated_events = []
+    for event_id, new_event_data in zip(event_id_list, event_data):
+        db_event = crud.get_event_by_id(db, event_id)
+        if db_event is None:
+            raise HTTPException(status_code=404, detail=f"Event with id {event_id} not found")
+        updated_event = crud.update_event(db, db_event.id, new_event_data)
+        updated_events.append(updated_event)
+    return {"message": "Events updated successfully"}
+
+
+@app.delete("/events/batch_delete/{event_ids}")
+def batch_delete_events(event_ids: str, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
+    user_id = auth.get_user_id_from_token(token)
+    if not user_id:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    event_id_list = [int(id_) for id_ in event_ids.split(",")]
+    for event_id in event_id_list:
+        if not crud.get_event_by_id(db=db, event_id=event_id):
+            raise HTTPException(status_code=404, detail="Event not found")
+        crud.delete_event_by_id(db=db, event_id=event_id)
+    return {"message": "Events deleted successfully"}
 
 
 # Implement other endpoints...

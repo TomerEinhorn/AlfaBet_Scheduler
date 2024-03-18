@@ -50,8 +50,9 @@ def get_event_by_id(db: Session, event_id: int):
     return db.query(models.Event).filter(models.Event.id == event_id).first()
 
 
-def update_event(db: Session, description: str, event_update: schemas.EventUpdate):
-    db_event = db.query(models.Event).filter(models.Event.description == description).first()
+def update_event(db: Session, event_id: int, event_update: schemas.EventUpdate):
+    print(f"event_id: {event_id}")
+    db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if db_event:
         for key, value in event_update.dict(exclude_unset=True).items():
             setattr(db_event, key, value)
