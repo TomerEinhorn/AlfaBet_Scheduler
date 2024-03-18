@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from sqlalchemy import desc
+from sqlalchemy import desc, and_
 
 from sqlalchemy.orm import Session
 from app import models
@@ -98,3 +98,10 @@ def delete_subscription(db: Session, subscription: models.Subscription):
 
 def get_user_by_username(db: Session, username: str):
     return db.query(models.User).filter(models.User.username == username).first()
+
+
+def get_upcoming_events(db: Session, time_delta: timedelta):
+    now = datetime.now(timezone.utc)
+    end_time = now + time_delta
+    return db.query(models.Event).filter(and_(models.Event.scheduled_time >= now,
+                                              models.Event.scheduled_time <= end_time)).all()

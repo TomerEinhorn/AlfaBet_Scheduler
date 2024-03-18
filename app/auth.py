@@ -63,7 +63,6 @@ def create_access_token_for_user(user: models.User):
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    print("access_token is: " + access_token)
     return access_token
 
 

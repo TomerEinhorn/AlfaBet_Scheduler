@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone, timedelta
 from typing import List
 
@@ -14,6 +15,11 @@ from app.auth import authenticate_user, create_access_token_for_user, oauth2_sch
 from app.database import SessionLocal, engine
 from app.database import get_db
 from app.schemas import SortField, BatchUpdateRequest, EventUpdate
+from app.background_tasks import scheduler
+
+scheduler.start()
+
+time.sleep(2)
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -97,7 +103,7 @@ def update_event(event_id: int, event_update: schemas.EventUpdate, db: Session =
     updated_event = crud.update_event(db, db_event.id, event_update)
     subscribers = crud.get_subscribers(db, event_id=event_id)
     for subscriber in subscribers:
-        print(f"Notification: Event {event_id} has been updated!")
+        logger.info(f"Notification: Event {event_id} has been updated!")
     return updated_event
 
 
@@ -108,9 +114,9 @@ def delete_event(event_id: int,  db: Session = Depends(get_db), token: str = Dep
         raise HTTPException(status_code=401, detail="Invalid credentials")
     subscribers = crud.get_subscribers(db, event_id=event_id)
     for subscriber in subscribers:
-        print(f"Notification: Event {event_id} has been canceled!")
+        logger.info(f"Notification: Event {event_id} has been canceled!")
         crud.delete_subscription(db, subscribers)
-        print(f"Subscription deleted for user: {subscribers.user_id}")
+        logger.info(f"Subscription deleted for user: {subscribers.user_id}")
     success = crud.delete_event_by_id(db, event_id)
     if not success:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -157,7 +163,7 @@ async def batch_update_events(event_ids: str, event_data: List[schemas.EventUpda
         updated_event = crud.update_event(db, db_event.id, new_event_data)
         subscribers = crud.get_subscribers(db, event_id=event_id)
         for subscriber in subscribers:
-            print(f"Notification: Event {event_id} has been updated!")
+            logger.info(f"Notification: Event {event_id} has been updated!")
         updated_events.append(updated_event)
     return {"message": "Events updated successfully"}
 
@@ -173,7 +179,7 @@ def batch_delete_events(event_ids: str, db: Session = Depends(get_db), token: st
             raise HTTPException(status_code=404, detail="Event not found")
         subscribers = crud.get_subscribers(db, event_id=event_id)
         for subscriber in subscribers:
-            print(f"Notification: Event {event_id} has been canceled!")
+            logger.info(f"Notification: Event {event_id} has been canceled!")
         subscriptions = crud.get_subscribers(db, event_id=event_id)
         for subscription in subscriptions:
             crud.delete_subscription(db, subscription)
@@ -190,7 +196,6 @@ def subscribe_to_event(event_id: int, db: Session = Depends(get_db), token: str 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     user = crud.get_user_by_username(db, username=username)
-    print(f"user_id: {user.id}, event_id: {event_id}")
     subscription_data = schemas.SubscriptionBase(event_id=event_id, user_id=user.id)
     subscription = crud.create_subscription(db=db, subscription=subscription_data)
     return subscription
@@ -209,7 +214,6 @@ def unsubscribe_from_event(event_id: int, db: Session = Depends(get_db), token: 
     return subscription
 
 
-
-# Implement other endpoints...
-
-
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
