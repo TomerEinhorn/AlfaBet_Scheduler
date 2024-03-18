@@ -149,10 +149,10 @@ def get_events_sorted(sort_field: SortField, db: Session = Depends(get_db), toke
           description="provide a description, location, scheduled time and popularity for each event to save "
                       "them all in the db")
 def batch_create_events(events: List[schemas.EventCreate], db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_name_from_token(token)
-    if not user_id:
+    username = auth.get_user_name_from_token(token)
+    if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    return [crud.create_event(db=db, event=event, user_id=user_id) for event in events]
+    return [crud.create_event(db=db, event=event, username=username) for event in events]
 
 
 @app.put("/events/batch_update/{event_ids}", summary="update multiple events in one request",
@@ -162,8 +162,8 @@ def batch_create_events(events: List[schemas.EventCreate], db: Session = Depends
                      " in the DB")
 async def batch_update_events(event_ids: str, event_data: List[schemas.EventUpdate],
                               db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_name_from_token(token)
-    if not user_id:
+    username = auth.get_user_name_from_token(token)
+    if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     event_id_list = [int(id_) for id_ in event_ids.split(",")]
     updated_events = []
@@ -182,8 +182,8 @@ async def batch_update_events(event_ids: str, event_data: List[schemas.EventUpda
 @app.delete("/events/batch_delete/{event_ids}", summary="delete multiple events in one request",
             description="provide event ids (separated by commas) to be deleted from the DB")
 def batch_delete_events(event_ids: str, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_name_from_token(token)
-    if not user_id:
+    username = auth.get_user_name_from_token(token)
+    if not username:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     event_id_list = [int(id_) for id_ in event_ids.split(",")]
     for event_id in event_id_list:
