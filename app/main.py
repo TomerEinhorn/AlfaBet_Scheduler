@@ -58,7 +58,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
 
 @app.post("/events/")
 def create_event(event: schemas.EventCreate, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
@@ -67,7 +67,7 @@ def create_event(event: schemas.EventCreate, db: Session = Depends(get_db), toke
 
 @app.get("/events/", response_model=List[schemas.Event])
 def get_events(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return crud.get_events(db)
@@ -75,7 +75,7 @@ def get_events(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme
 
 @app.get("/event/{id}", response_model=schemas.Event)
 def get_event_by_description(event_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     event = crud.get_event_by_id(db, event_id)
@@ -88,21 +88,29 @@ def get_event_by_description(event_id: int, db: Session = Depends(get_db), token
 @app.put("/event/{id}", response_model=schemas.Event)
 def update_event(event_id: int, event_update: schemas.EventUpdate, db: Session = Depends(get_db),
                  token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     db_event = crud.get_event_by_id(db, event_id)
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
     updated_event = crud.update_event(db, db_event.id, event_update)
+    subscribers = crud.get_subscribers(db, event_id=event_id)
+    for subscriber in subscribers:
+        print(f"Notification: Event {event_id} has been updated!")
     return updated_event
 
 
 @app.delete("/event/{id}")
 def delete_event(event_id: int,  db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    subscribers = crud.get_subscribers(db, event_id=event_id)
+    for subscriber in subscribers:
+        print(f"Notification: Event {event_id} has been canceled!")
+        crud.delete_subscription(db, subscribers)
+        print(f"Subscription deleted for user: {subscribers.user_id}")
     success = crud.delete_event_by_id(db, event_id)
     if not success:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -111,7 +119,7 @@ def delete_event(event_id: int,  db: Session = Depends(get_db), token: str = Dep
 
 @app.get("/events/location/{location}", response_model=List[schemas.Event])
 def get_events_by_location(location: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     events = crud.get_events_by_location(db, location)
@@ -120,7 +128,7 @@ def get_events_by_location(location: str, db: Session = Depends(get_db), token: 
 
 @app.get("/events/sort/{sort_field}", response_model=List[schemas.Event])
 def get_events_sorted(sort_field: SortField, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return crud.get_events(db, sort_field=sort_field)
@@ -128,7 +136,7 @@ def get_events_sorted(sort_field: SortField, db: Session = Depends(get_db), toke
 
 @app.post("/events/batch_create/", response_model=List[schemas.Event])
 def batch_create_events(events: List[schemas.EventCreate], db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     return [crud.create_event(db=db, event=event, user_id=user_id) for event in events]
@@ -137,7 +145,7 @@ def batch_create_events(events: List[schemas.EventCreate], db: Session = Depends
 @app.put("/events/batch_update/{event_ids}")
 async def batch_update_events(event_ids: str, event_data: List[schemas.EventUpdate],
                               db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     event_id_list = [int(id_) for id_ in event_ids.split(",")]
@@ -147,21 +155,59 @@ async def batch_update_events(event_ids: str, event_data: List[schemas.EventUpda
         if db_event is None:
             raise HTTPException(status_code=404, detail=f"Event with id {event_id} not found")
         updated_event = crud.update_event(db, db_event.id, new_event_data)
+        subscribers = crud.get_subscribers(db, event_id=event_id)
+        for subscriber in subscribers:
+            print(f"Notification: Event {event_id} has been updated!")
         updated_events.append(updated_event)
     return {"message": "Events updated successfully"}
 
 
 @app.delete("/events/batch_delete/{event_ids}")
 def batch_delete_events(event_ids: str, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
-    user_id = auth.get_user_id_from_token(token)
+    user_id = auth.get_user_name_from_token(token)
     if not user_id:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     event_id_list = [int(id_) for id_ in event_ids.split(",")]
     for event_id in event_id_list:
         if not crud.get_event_by_id(db=db, event_id=event_id):
             raise HTTPException(status_code=404, detail="Event not found")
+        subscribers = crud.get_subscribers(db, event_id=event_id)
+        for subscriber in subscribers:
+            print(f"Notification: Event {event_id} has been canceled!")
+        subscriptions = crud.get_subscribers(db, event_id=event_id)
+        for subscription in subscriptions:
+            crud.delete_subscription(db, subscription)
         crud.delete_event_by_id(db=db, event_id=event_id)
     return {"message": "Events deleted successfully"}
+
+
+@app.post("/events/{event_id}/subscribe", response_model=schemas.Subscription)
+def subscribe_to_event(event_id: int, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
+    username = auth.get_user_name_from_token(token)
+    if not username:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    event = crud.get_event_by_id(db, event_id=event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    user = crud.get_user_by_username(db, username=username)
+    print(f"user_id: {user.id}, event_id: {event_id}")
+    subscription_data = schemas.SubscriptionBase(event_id=event_id, user_id=user.id)
+    subscription = crud.create_subscription(db=db, subscription=subscription_data)
+    return subscription
+
+
+@app.delete("/events/{event_id}/unsubscribe", response_model=schemas.Subscription)
+def unsubscribe_from_event(event_id: int, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
+    username = auth.get_user_name_from_token(token)
+    if not username:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    user = crud.get_user_by_username(db, username=username)
+    subscription = crud.get_subscription(db, event_id=event_id, user_id=user.id)
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    crud.delete_subscription(db, subscription)
+    return subscription
+
 
 
 # Implement other endpoints...

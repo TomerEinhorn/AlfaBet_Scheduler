@@ -69,3 +69,19 @@ class BatchUpdateRequest(BaseModel):
     event_data: List[dict]
 
 
+class SubscriptionBase(BaseModel):
+    event_id: int
+    user_id: int
+
+
+class SubscriptionCreate(SubscriptionBase):
+    pass
+
+
+class Subscription(SubscriptionBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+

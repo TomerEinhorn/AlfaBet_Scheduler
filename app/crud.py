@@ -51,7 +51,6 @@ def get_event_by_id(db: Session, event_id: int):
 
 
 def update_event(db: Session, event_id: int, event_update: schemas.EventUpdate):
-    print(f"event_id: {event_id}")
     db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if db_event:
         for key, value in event_update.dict(exclude_unset=True).items():
@@ -73,3 +72,29 @@ def delete_event_by_id(db: Session, event_id: int):
 
 def get_events_by_location(db: Session, location: str):
     return db.query(models.Event).filter(models.Event.location == location).all()
+
+
+def get_subscribers(db: Session, event_id: int):
+    return db.query(models.Subscription).filter(models.Subscription.event_id == event_id).all()
+
+
+def create_subscription(db: Session, subscription: schemas.SubscriptionBase):
+    db_subscription = models.Subscription(**subscription.dict())
+    db.add(db_subscription)
+    db.commit()
+    db.refresh(db_subscription)
+    return db_subscription
+
+
+def get_subscription(db: Session, event_id: int, user_id: int):
+    return (db.query(models.Subscription).
+            filter(models.Subscription.event_id == event_id, models.Subscription.user_id == user_id).first())
+
+
+def delete_subscription(db: Session, subscription: models.Subscription):
+    db.delete(subscription)
+    db.commit()
+
+
+def get_user_by_username(db: Session, username: str):
+    return db.query(models.User).filter(models.User.username == username).first()

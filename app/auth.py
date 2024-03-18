@@ -67,7 +67,7 @@ def create_access_token_for_user(user: models.User):
     return access_token
 
 
-def get_user_id_from_token(token: str, db: Session = Depends(get_db)) -> Optional[int]:
+def get_user_name_from_token(token: str, db: Session = Depends(get_db)) -> Optional[str]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
