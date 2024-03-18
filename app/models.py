@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 
@@ -16,7 +16,11 @@ class Event(Base):
     scheduled_time = Column(DateTime, nullable=False)
     creation_time = Column(DateTime, default=datetime.now)
     popularity = Column(Integer, default=0)
-    created_by = Column(String, nullable=False)
+    created_by = Column(String, ForeignKey('users.username'), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('description', 'location', 'scheduled_time', name='uq_event_details'),
+    )
 
 
 class User(Base):

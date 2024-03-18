@@ -46,16 +46,14 @@ def get_events(db: Session, skip: int = 0, limit: int = 100, sort_field: SortFie
         return db.query(models.Event).offset(skip).limit(limit).all()
 
 
-def get_event_by_description(db: Session, description: str):
-    return db.query(models.Event).filter(models.Event.description == description).first()
+def get_event_by_id(db: Session, event_id: int):
+    return db.query(models.Event).filter(models.Event.id == event_id).first()
 
 
-def update_event(db: Session, event_id: int, event_update: schemas.EventUpdate):
-    db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
+def update_event(db: Session, description: str, event_update: schemas.EventUpdate):
+    db_event = db.query(models.Event).filter(models.Event.description == description).first()
     if db_event:
-        event_update_dict = event_update.model_dump(exclude_unset=True)
-        for key, value in event_update_dict.items():
-            print(f"key: {key}, value: {value}")
+        for key, value in event_update.dict(exclude_unset=True).items():
             setattr(db_event, key, value)
         db.commit()
         db.refresh(db_event)
@@ -63,8 +61,8 @@ def update_event(db: Session, event_id: int, event_update: schemas.EventUpdate):
     return None
 
 
-def delete_event_by_description(db: Session, description: str):
-    db_event = db.query(models.Event).filter(models.Event.description == description).first()
+def delete_event_by_id(db: Session, event_id: int):
+    db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if db_event:
         db.delete(db_event)
         db.commit()

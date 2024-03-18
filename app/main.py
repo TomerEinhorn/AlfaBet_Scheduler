@@ -15,6 +15,7 @@ from app.database import SessionLocal, engine
 from app.database import get_db
 from app.schemas import SortField
 
+
 models.Base.metadata.create_all(bind=engine)
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,12 @@ async def read_root():
 
 
 # Create a new user
+@app.post("/users/", response_model=schemas.User)
+def create_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
+    db_user = crud.create_user(db, user)
+    return db_user
+
+
 @app.post("/token")
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = authenticate_user(form_data.username, form_data.password, db)
@@ -67,42 +74,36 @@ def get_events(db: Session = Depends(get_db), token: str = Depends(oauth2_scheme
     return crud.get_events(db)
 
 
-@app.get("/event/{description}", response_model=schemas.Event)
-def get_event_by_description(description: str, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
+@app.get("/event/{id}", response_model=schemas.Event)
+def get_event_by_description(event_id: int, db: Session = Depends(get_db), token: str = Depends(oauth2_scheme)):
     user_id = auth.get_user_id_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    event = crud.get_event_by_description(db, description)
+    event = crud.get_event_by_id(db, event_id)
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
 
     return event
 
 
-@app.put("/event/{description}", response_model=schemas.Event)
-def update_event(description: str, event_update: schemas.EventUpdate, db: Session = Depends(SessionLocal),
-                 token: str = Depends(oauth2_scheme)):
-    print("Received event_update:", event_update)
-    print("Description:", description)
-    print("Token:", token)
+@app.put("/event/{id}", response_model=schemas.Event)
+def update_event(event_id: int, event_update: schemas.EventUpdate, db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
     user_id = auth.get_user_id_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    db_event = crud.get_event_by_description(db, description)
+    db_event = crud.get_event_by_id(db, event_id)
     if db_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
-    print(f"Fields received: {event_update}")
-
-    updated_event = crud.update_event(db, db_event.id, event_update)
+    updated_event = crud.update_event(db, db_event.description, event_update)
     return updated_event
 
 
-@app.delete("/event/{description}")
-def delete_event(description: str, db: Session = Depends(SessionLocal), token: str = Depends(oauth2_scheme)):
+@app.delete("/event/{id}")
+def delete_event(event_id: int,  db: Session = Depends(get_db), token: str = Depends(auth.oauth2_scheme)):
     user_id = auth.get_user_id_from_token(token)
     if user_id is None:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    success = crud.delete_event_by_description(db, description)
+    success = crud.delete_event_by_id(db, event_id)
     if not success:
         raise HTTPException(status_code=404, detail="Event not found")
     return {"message": "Event deleted successfully"}
@@ -125,6 +126,6 @@ def get_events_sorted(sort_field: SortField, db: Session = Depends(get_db), toke
     return crud.get_events(db, sort_field=sort_field)
 
 
-
-
 # Implement other endpoints...
+
+
