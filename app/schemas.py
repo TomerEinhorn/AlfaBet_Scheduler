@@ -23,9 +23,6 @@ class Event(EventBase):
     popularity: int
     created_by: str
 
-    class Config:
-        orm_mode = True
-
 
 class EventUpdate(BaseModel):
     description: Optional[str] = None
@@ -44,7 +41,6 @@ class SortField(str, Enum):
     creation_time = "creation_time"
 
 
-
 class UserCreate(UserBase):
     username: str
     password: str
@@ -53,10 +49,6 @@ class UserCreate(UserBase):
 class User(UserBase):
     id: int
     creation_time: datetime
-
-
-class Config:
-    orm_mode = True
 
 
 class Token(BaseModel):
@@ -81,7 +73,5 @@ class SubscriptionCreate(SubscriptionBase):
 class Subscription(SubscriptionBase):
     id: int
 
-    class Config:
-        orm_mode = True
 
 

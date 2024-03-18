@@ -46,14 +46,12 @@ def get_password_hash(password):
 
 
 def get_user(db, username: str):
-    return db.query(models.User).filter(models.User.username == username).first()
+    return db.query(models.User).filter(models.User.username == username).first() or None
 
 
 def authenticate_user(username: str, password: str, db: Session):
     user = get_user(db, username)
-    if not user:
-        return False
-    if not verify_password(password, user.password_hash):
+    if not user or not verify_password(password, user.password_hash):
         return False
     return user
 
