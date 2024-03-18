@@ -20,14 +20,14 @@ def create_user(db: Session, user_create: UserCreate):
     return db_user
 
 
-def create_event(db: Session, event: schemas.EventCreate, user_id: int):
+def create_event(db: Session, event: schemas.EventCreate, username: str):
     db_event = models.Event(
         description=event.description,
         location=event.location,
         scheduled_time=event.scheduled_time,
         creation_time=datetime.now(),
         popularity=event.popularity,
-        created_by=user_id
+        created_by=username
     )
     db.add(db_event)
     db.commit()
